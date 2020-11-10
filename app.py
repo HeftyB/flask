@@ -1,21 +1,15 @@
-# Imports the Flask framework
+# Imports
 from flask import Flask, render_template, flash, redirect, url_for, session, request, logging
-# Imports the data from data.py
-# from data import todos
-
 from flask_mysqldb import MySQL
-
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
-
 from passlib.hash import sha256_crypt
-
 from functools import wraps
 
 # Create an instance of the flask Class
 app = Flask(__name__)
 
 
-
+# Configure applicaiton for MySQL DB
 app.config["MYSQL_HOST"] = "localhost"
 app.config["MYSQL_USER"] = "root"
 app.config["MYSQL_PASSWORD"] = "as123456"
@@ -24,22 +18,26 @@ app.config["MYSQL_CURSORCLASS"] = "DictCursor"
 
 mysql = MySQL(app)
 
-# Var for data in data.py
-# Todos = todos()
 
+"""
+ROUTES
+"""
 # Default route
 @app.route("/")
 def index():
     return render_template("home.html")
 
+
 # About route
 @app.route("/about")
 def about():
     return render_template("about.html")
+
+
 # Todos route
 @app.route("/todos")
 def todos():
-    #Create cursor
+    # Create cursor
     cur = mysql.connection.cursor()
 
     # Get Todos
@@ -55,10 +53,11 @@ def todos():
 
     cur.close()
 
+
 # Individial todo route
 @app.route("/todo/<string:id>/")
 def todo(id):
-    #Create cursor
+    # Create cursor
     cur = mysql.connection.cursor()
 
     # Get Todos
@@ -68,6 +67,8 @@ def todo(id):
 
     return render_template("todo.html", todos=todos)
 
+
+# Registration form schema
 class RegisterForm(Form):
     name = StringField("Name", [validators.Length(min=1, max=50)])
     username = StringField("Username", [validators.Length(min=4, max=25)])
@@ -78,6 +79,7 @@ class RegisterForm(Form):
     confirm = PasswordField("Confirm Password")
 
 
+# Registration route
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm(request.form)
@@ -86,12 +88,16 @@ def register():
         username = form.username.data
         password = sha256_crypt.encrypt(str(form.password.data))
 
+        # Create cursor
         cur = mysql.connection.cursor()
 
-        cur.execute("INSERT INTO users(name, username, password) VALUES(%s, %s, %s)", (name, username, password))
+        # Add to-do into DB
+        cur.execute("INSERT INTO users(name, username, password) VALUES(%s, %s, %s)",
+                    (name, username, password))
 
         mysql.connection.commit()
 
+        # Close connection
         cur.close()
 
         flash("You are now registered!", "success")
@@ -99,6 +105,7 @@ def register():
         return redirect(url_for("login"))
 
     return render_template("register.html", form=form)
+
 
 # User login
 @app.route("/login", methods=["GET", "POST"])
@@ -112,7 +119,8 @@ def login():
         cur = mysql.connection.cursor()
 
         # Get user by username
-        result = cur.execute("SELECT * FROM users WHERE username = %s", [username])
+        result = cur.execute(
+            "SELECT * FROM users WHERE username = %s", [username])
 
         if result > 0:
             # Get stored hash
@@ -134,12 +142,13 @@ def login():
 
             # Close connection
             cur.close()
-        
+
         else:
             error = "Username not found"
             return render_template("login.html", error=error)
 
     return render_template("login.html")
+
 
 # Check if user is logged in
 def is_logged_in(f):
@@ -152,6 +161,7 @@ def is_logged_in(f):
             return redirect(url_for("login"))
     return wrap
 
+# Lougout route
 @app.route("/logout")
 @is_logged_in
 def logout():
@@ -159,12 +169,12 @@ def logout():
     flash("You are now logged out!", "success")
     return redirect(url_for("login"))
 
-
+# Dashboard route
 @app.route("/dashboard")
 @is_logged_in
 def dashboard():
 
-    #Create cursor
+    # Create cursor
     cur = mysql.connection.cursor()
 
     # Get Todos
@@ -180,10 +190,13 @@ def dashboard():
 
     cur.close()
 
+
 class ToDoForm(Form):
     title = StringField("Title", [validators.Length(min=1, max=200)])
     body = TextAreaField("Body", [validators.Length(min=4)])
 
+
+# Add a to-do route
 @app.route("/add_todo", methods=["GET", "POST"])
 @is_logged_in
 def add_todo():
@@ -196,7 +209,8 @@ def add_todo():
         cur = mysql.connection.cursor()
 
         # Execute
-        cur.execute("INSERT INTO todos(title, body, author) VALUES(%s, %s, %s)", (title, body, session["username"]))
+        cur.execute("INSERT INTO todos(title, body, author) VALUES(%s, %s, %s)",
+                    (title, body, session["username"]))
 
         # Commit to DB
         mysql.connection.commit()
@@ -207,12 +221,11 @@ def add_todo():
         flash("To-Do Created!", "success")
 
         return redirect(url_for("dashboard"))
-    
 
     return render_template("add_todo.html", form=form)
 
 
-
+# Edit a todo route
 @app.route("/edit_todo/<string:id>", methods=["GET", "POST"])
 @is_logged_in
 def edit_todo(id):
@@ -225,12 +238,8 @@ def edit_todo(id):
 
     todo = cur.fetchone()
 
-
-
     # Get form
     form = ToDoForm(request.form)
-
-    
 
     # Populate article form fields
     form.title.data = todo["title"]
@@ -246,7 +255,8 @@ def edit_todo(id):
         cur = mysql.connection.cursor()
 
         # Execute
-        cur.execute("UPDATE todos SET title=%s, body=%s WHERE ID = %s", (title, body, id))
+        cur.execute(
+            "UPDATE todos SET title=%s, body=%s WHERE ID = %s", (title, body, id))
 
         # Commit to DB
         mysql.connection.commit()
@@ -257,7 +267,6 @@ def edit_todo(id):
         flash("To-Do Created!", "success")
 
         return redirect(url_for("dashboard"))
-    
 
     return render_template("edit_todo.html", form=form)
 
@@ -275,15 +284,15 @@ def delete_todo(id):
     # Commit to DB
     mysql.connection.commit()
 
-    #Close connection
+    # Close connection
     cur.close()
 
     flash("To-do Deleted!", "success")
 
     return redirect(url_for("dashboard"))
-    
+
 
 # Runs the flask application, debug parameter auto-retarts the server after changes
 if __name__ == "__main__":
-    app.secret_key="secrets"
+    app.secret_key = "secrets"
     app.run(debug=True)

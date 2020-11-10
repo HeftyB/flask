@@ -20,11 +20,11 @@
       voluptatem enim error sint. At magnam aliquid dolor molestiae eum quam
       modi labore est esse porro.
     </p>
-    <p>
-      <a class="btn btn-primary btn-lg" href="#" role="button"
-        >Button 1 &raquo;</a
-      >
-    </p>
+    
+    {% if session.logged_in == NULL %}
+      <a href="/register" class="btn btn-primary btn-lg">Register</a>
+      <a href="/login" class="btn btn-success btn-lg">Login</a>
+    {% endif %}
   </div>
 </div>
 
